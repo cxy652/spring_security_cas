@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans:beans xmlns="http://www.springframework.org/schema/security"
+             xmlns:beans="http://www.springframework.org/schema/beans"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xsi:schemaLocation="http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/security
+        http://www.springframework.org/schema/security/spring-security-4.2.xsd">
+    <http pattern="/images/**" security="none"/>
+    <http pattern="/login.htmls" security="none"/>
+    <http pattern="/login/fail.htmls" security="none"/>
+    <!--
+        auto-config 表示引入了SpringSecurity相关的过滤器
+        user-expressions 是否使用SpEL表达式
+    -->
+    <http auto-config="true" use-expressions="false">
+        <!--所有带有admin的请求需要ROLE_ADMIN权限-->
+        <intercept-url pattern="/**" access="ROLE_ADMIN"/>
+        <!--自定义登录配置-->
+        <form-login login-page="/login.htmls" default-target-url="/admin/user/list.htmls"
+                    authentication-failure-url="/loginFail.htmls"/>
+        <!--关闭CSRF攻击-->
+        <csrf disabled="true"/>
+        <!---->
+
+    </http>
+    <authentication-manager>
+        <authentication-provider>
+            <password-encoder  base64="true"/>
+            <!--创建用户并授权-->
+           <!--<user-service>
+                <user name="admin" authorities="ROLE_ADMIN" password="123456"/>
+            </user-service>-->
+            <jdbc-user-service data-source-ref="baseDataSource" users-by-username-query="select * from users where username=?" />
+        </authentication-provider>
+    </authentication-manager>
+
+</beans:beans>
