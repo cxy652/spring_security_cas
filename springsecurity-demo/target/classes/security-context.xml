@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans" xmlns:security="http://www.springframework.org/schema/security" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans
+	http://www.springframework.org/schema/beans/spring-beans-4.2.xsd
+	http://www.springframework.org/schema/security
+	http://www.springframework.org/schema/security/spring-security-3.1.xsd
+	http://www.springframework.org/schema/context 
+    http://www.springframework.org/schema/context/spring-context-4.2.xsd">
+
+	<security:http pattern="/8182/**" security="none" />
+	<security:http use-expressions="true" entry-point-ref="authenticationProcessingFilterEntryPoint">
+		<!-- logout-success-url:成功注销后跳转到的页面; <security:logout logout-success-url="/login.html" /> -->
+		<security:access-denied-handler error-page="/main/denied.jsp" />
+		<!-- 实现免登陆验证 -->
+		<security:remember-me />
+		<security:session-management invalid-session-url="/timeout" session-fixation-protection="none">
+			<security:concurrency-control max-sessions="1" error-if-maximum-exceeded="true" expired-url="/timeout" />
+		</security:session-management>
+
+		<!-- <security:custom-filter ref="rememberLastURIFilter" before="SECURITY_CONTEXT_FILTER" /> -->
+		<security:custom-filter ref="usrLogoutFilter" position="LOGOUT_FILTER" />
+		<security:custom-filter ref="loginFilter" position="FORM_LOGIN_FILTER" />
+		<security:custom-filter ref="securityFilter" before="FILTER_SECURITY_INTERCEPTOR" />
+	</security:http>
+
+	<!-- 登录验证器 -->
+	<bean id="loginFilter" class="com.egeinfo.security.CustomUserAuthFilter">
+		<!-- 处理登录 -->
+		<property name="filterProcessesUrl" value="/j_spring_security_check"></property>
+		<property name="authenticationSuccessHandler" ref="loginLogAuthenticationSuccessHandler"></property>
+		<property name="authenticationFailureHandler" ref="simpleUrlAuthenticationFailureHandler"></property>
+		<property name="authenticationManager" ref="customAuthenticationManager"></property>
+	</bean>
+
+	<bean id="loginLogAuthenticationSuccessHandler" class="org.springframework.security.web.authentication.SavedRequestAwareAuthenticationSuccessHandler">
+		<property name="defaultTargetUrl" value="/index.html"></property>
+	</bean>
+	<bean id="simpleUrlAuthenticationFailureHandler" class="org.springframework.security.web.authentication.ExceptionMappingAuthenticationFailureHandler">
+
+		<property name="exceptionMappings">
+			<!-- failureUrlMap the map keyed by the fully-qualified name of the exception class, with the corresponding failure URL as the value. -->
+			<map>
+				<entry key="org.springframework.security.core.userdetails.UsernameNotFoundException">
+					<value>/login.html?login_error=user_not_found</value>
+				</entry>
+				<entry key="org.springframework.security.authentication.BadCredentialsException">
+					<value>/login.html?login_error=user_psw_error</value>
+				</entry>
+				<entry key="org.springframework.security.authentication.DisabledException">
+					<value>/login.html?login_error=user_disabled</value>
+				</entry>
+				<entry key="com.meiya.athena.secu.spring.UserBranchNotFoundException">
+					<value>/login.html?login_error=user_branch_not_found</value>
+				</entry>
+				<entry key="com.meiya.athena.secu.spring.UserBranchDisabledException">
+					<value>/login.html?login_error=user_branch_disabled</value>
+				</entry>
+				<entry key="org.springframework.security.authentication.LockedExeption">
+					<value>/login.html?login_error=user_locked</value>
+				</entry>
+				<entry key="org.springframework.security.authentication.AccountExpiredException">
+					<value>/login.html?login_error=user_out_of_date</value>
+				</entry>
+				<entry key="org.springframework.security.authentication.AuthenticationCredentialsNotFoundException">
+					<value>/login.html?login_error=authcode_not_found</value>
+				</entry>
+				<entry key="com.meiya.athena.base.exception.IpNotAllowException">
+					<value>/login.html?login_error=ip_not_allow</value>
+				</entry>
+				<entry key="org.springframework.security.core.AuthenticationException">
+					<value>/login.html?login_error=other_err_code</value>
+				</entry>
+				<entry key="com.meiya.athena.base.exception.TokenLoginException">
+					<value>/main/failure.jsp</value>
+				</entry>
+			</map>
+		</property>
+		<property name="defaultFailureUrl" value="/main/failure.jsp"></property>
+	</bean>
+
+	<!-- 认证过滤器 -->
+	<bean id="securityFilter" class="com.egeinfo.security.CustomSecurityFilter">
+		<!-- 用户拥有的权限 -->
+		<property name="authenticationManager" ref="customAuthenticationManager" />
+		<!-- 用户是否拥有所请求资源的权限 -->
+		<property name="accessDecisionManager" ref="customAccessDecisionManager" />
+		<!-- 资源与权限对应关系 -->
+		<property name="securityMetadataSource" ref="customSecurityMetadataSource" />
+	</bean>
+
+	<!--认证管理器，实现用户认证的入口 -->
+	<security:authentication-manager alias="customAuthenticationManager">
+		<security:authentication-provider user-service-ref="customUserDetailServiceImpl">
+			<security:password-encoder ref="md5Encoder"></security:password-encoder>
+		</security:authentication-provider>
+	</security:authentication-manager>
+
+	<bean id="customAccessDecisionManager" class="com.egeinfo.security.CustomAccessDecisionManager"></bean>
+
+	<!-- 资源源数据定义，即定义某一资源可以被哪些角色访问 -->
+	<bean id="customSecurityMetadataSource" class="com.egeinfo.security.CustomSecurityMetadataSource"></bean>
+
+	<!-- 实现了UserDetailsService的Bean -->
+	<bean id="customUserDetailServiceImpl" class="com.egeinfo.security.CustomUserDetailServiceImpl">
+	</bean>
+
+	<!-- 用户的密码加密 -->
+	<bean id="md5Encoder" class="com.egeinfo.utils.MD5Encoder" />
+
+	<!-- 未登录的切入点 -->
+	<bean id="authenticationProcessingFilterEntryPoint" class="org.springframework.security.web.authentication.LoginUrlAuthenticationEntryPoint">
+		<property name="loginFormUrl" value="/timeout"></property>
+	</bean>
+
+	<bean id="webPrivilegeEvaluator" class="org.springframework.security.web.access.DefaultWebInvocationPrivilegeEvaluator">
+		<constructor-arg ref="securityFilter" />
+	</bean>
+
+	<!-- 用户退出 <bean id="usrLogoutFilter" class="com.meiya.athenase.util.MD5Encoder" /> -->
+
+	<bean id="usrLogoutFilter" class="org.springframework.security.web.authentication.logout.LogoutFilter">
+		<constructor-arg value="/login.html" />
+		<constructor-arg>
+			<list>
+				<bean class="com.egeinfo.security.CustomSessionLogoutHandler" />
+				<bean class="org.springframework.security.web.authentication.logout.SecurityContextLogoutHandler" />
+				<bean class="org.springframework.security.web.authentication.rememberme.TokenBasedRememberMeServices">
+					<property name="key" value="a37f4b31-0e45-11da-bd0e-0800200a9e66"></property>
+					<property name="userDetailsService" ref="customUserDetailServiceImpl"></property>
+				</bean>
+			</list>
+		</constructor-arg>
+		<property name="filterProcessesUrl" value="/j_spring_security_logout" />
+	</bean>
+	<!-- <bean id="rememberLastURIFilter" class="com.meiya.athena.secu.spring.RememberLastURIFilter" /> -->
+</beans>

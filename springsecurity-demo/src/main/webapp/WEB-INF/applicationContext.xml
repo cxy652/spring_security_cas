@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns:context="http://www.springframework.org/schema/context"
+       xmlns:aop="http://www.springframework.org/schema/aop"
+       xmlns:tx="http://www.springframework.org/schema/tx"
+       xmlns:mybatis="http://mybatis.org/schema/mybatis-spring"
+       xmlns="http://www.springframework.org/schema/beans"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans
+	http://www.springframework.org/schema/beans/spring-beans-4.2.xsd
+	http://www.springframework.org/schema/context
+	http://www.springframework.org/schema/context/spring-context-4.2.xsd
+	http://www.springframework.org/schema/aop
+	http://www.springframework.org/schema/aop/spring-aop-4.2.xsd
+	http://www.springframework.org/schema/tx
+	http://www.springframework.org/schema/tx/spring-tx-4.2.xsd
+	http://mybatis.org/schema/mybatis-spring
+	http://mybatis.org/schema/mybatis-spring.xsd"
+       default-autowire="byName">
+    <import resource="classpath:mybatis-config.xml" />
+    <import resource="classpath:security-context.xml" />
+    <context:annotation-config/>
+    <aop:aspectj-autoproxy proxy-target-class="true"/>
+    <context:component-scan base-package="com.egeinfo.*" />
+    <!-- 配置数据源properties路径 -->
+    <context:property-placeholder location="classpath:database.properties" ignore-unresolvable="true"/>
+    <!-- 配置多个数据源 -->
+    <bean id="default" class="org.apache.commons.dbcp.BasicDataSource" destroy-method="close">
+        <property name="driverClassName" value="${default.driver}"/>
+        <property name="url" value="${default.url}"/>
+        <property name="username" value="${default.username}"/>
+        <property name="password" value="${default.password}"/>
+        <property name="testWhileIdle" value="true"/>
+        <property name="validationQuery" value="select 1 from dual"/>
+        <property name="numTestsPerEvictionRun" value="10"/>
+        <property name="timeBetweenEvictionRunsMillis" value="3600000"/>
+        <property name="testOnBorrow" value="true"/>
+    </bean>
+
+    <!-- 配置动态数据源 -->
+    <bean id="dynamicDataSource" class="com.egeinfo.base.datasource.DynamicDataSource">
+        <property name="targetDataSources">
+            <map>
+                <entry value-ref="default" key="default"/>
+            </map>
+        </property>
+        <!-- 配置默认的数据源 -->
+        <property name="defaultTargetDataSource" ref="default"/>
+    </bean>
+
+    <!-- 配置一个动态的sessionFactory -->
+    <bean id="dynamicSessionFactory" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="dynamicDataSource"/>
+        <property name="configLocation" value="classpath:mybatis-config.xml"/>
+    </bean>
+    <!-- 配置一个 默认的SqlSessionTemplate-->
+    <bean id="sqlSession" name="sqlSessionTemplate" class="org.mybatis.spring.SqlSessionTemplate">
+        <constructor-arg index="0" ref="dynamicSessionFactory"/>
+        <constructor-arg index="1" value="BATCH"/>
+    </bean>
+
+    <!-- 配置动态的事务管理器 -->
+    <bean id="dynamicTransactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dynamicDataSource"/>
+    </bean>
+    <!-- 配置动态事务装置 -->
+    <tx:advice id="dynamicAdvice" transaction-manager="dynamicTransactionManager">
+        <tx:attributes>
+            <tx:method name="insert*" propagation="REQUIRED" read-only="false"/>
+            <tx:method name="add*" propagation="REQUIRED" read-only="false"/>
+            <tx:method name="update*" propagation="REQUIRED" read-only="false"/>
+            <tx:method name="delete*" propagation="REQUIRED" read-only="false"/>
+            <tx:method name="find*" propagation="SUPPORTS"/>
+            <tx:method name="get*" propagation="SUPPORTS"/>
+            <tx:method name="select*" propagation="SUPPORTS"/>
+        </tx:attributes>
+    </tx:advice>
+    <!-- AOP配置 -->
+    <aop:config>
+        <aop:pointcut id="pc" expression="execution(* com.egeinfo.service.*.*(..))"/>
+        <aop:advisor pointcut-ref="pc" advice-ref="dynamicAdvice"/>
+    </aop:config>
+    <bean id="baseDAO" class="com.egeinfo.dao.impl.BaseDAOImpl"/>
+</beans>
