@@ -8,6 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import com.egeinfo.utils.JodaTimeUtil;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -38,21 +39,26 @@ public class CustomSecurityMetadataSource implements FilterInvocationSecurityMet
 	public Collection<ConfigAttribute> getAttributes(Object object) throws IllegalArgumentException {
 		HttpServletRequest request = ((FilterInvocation) object).getHttpRequest();
 		HttpServletResponse response = ((FilterInvocation) object).getHttpResponse();
-		// SESSION过期检查机制
-		try {
+		/*try {
 			if (request.getSession().getAttribute("SESSION_LAST_ACTION_TIME") != null) {
-
+				Long currentTime = JodaTimeUtil.currentTime().getMillis() / 1000;
+				Long lastActionTime = (Long) request.getSession().getAttribute("SESSION_LAST_ACTION_TIME");
+				if (lastActionTime + 86400L < currentTime
+						&& !StringUtils.endsWith(request.getRequestURI(), "login.html")) {
+					response.sendRedirect(request.getContextPath() + "/j_spring_security_logout");
+					return null;
+				} else {
+					request.getSession().setAttribute("SESSION_LAST_ACTION_TIME", currentTime);
+				}
 			}
 		} catch (Exception e) {
 			LOG.error("SESSION过期检查出现异常", e);
-
-		}
+		}*/
 		if (resourceMap == null) {
 			loadResourceDefine();
 		}
 
 		Iterator<String> it = resourceMap.keySet().iterator();
-
 		while (it.hasNext()) {
 			String resURL = it.next();
 			pathMatcher = new AntPathRequestMatcher(resURL);

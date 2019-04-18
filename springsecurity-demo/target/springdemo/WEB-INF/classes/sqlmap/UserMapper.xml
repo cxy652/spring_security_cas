@@ -1,9 +1,23 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
 <mapper namespace="UserMapper">
+	<sql id="sqlWhere">
+	 <where>
+	 	1=1
+        <if test="userName != null and userName != ''">
+            <![CDATA[AND t.userName = #{userName}]]>
+        </if>
+    </where>
+	</sql>
     <select id="getListPage" parameterType="Users" resultType="Users">
         select t.*
-		from t_sys_user t
-		<include refid="sqlWherePage" /> and (t.isDeleted != '1' or t.isDeleted is null)
+		from t_users t
+		<include refid="sqlWhere" />
+    </select>
+    <select id="findByProperties" parameterType="Users" resultType="Users">
+        SELECT t.*
+        FROM t_users t
+        <include refid="sqlWhere" />
+        order by t.id desc
     </select>
 </mapper>

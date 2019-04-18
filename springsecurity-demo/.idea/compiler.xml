@@ -10,5 +10,8 @@
         <module name="springsecurity-demo" />
       </profile>
     </annotationProcessing>
+    <bytecodeTargetLevel>
+      <module name="springsecurity-demo" target="1.8" />
+    </bytecodeTargetLevel>
   </component>
 </project>
